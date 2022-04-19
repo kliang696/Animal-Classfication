@@ -3,18 +3,17 @@ import os
 import numpy as np
 import random
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 import sys
 from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_score, matthews_corrcoef
-from tensorflow.keras.utils import to_categorical
-import zipfile as zip
-import cv2
+
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Conv2D, MaxPool2D, Flatten, BatchNormalization
+from keras.layers import Dense, Dropout, Conv2D, MaxPool2D, Flatten, BatchNormalization, MaxPooling2D
 from keras.utils import np_utils
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras.models import Sequential
+from tensorflow.python.keras.applications.vgg19 import VGG19
 # ------------------------------------------------------------------------------------------------------------------
 ## Process images in parallel
 AUTOTUNE = tf.data.AUTOTUNE
@@ -22,7 +21,7 @@ AUTOTUNE = tf.data.AUTOTUNE
 # root = zip.ZipFile('Animal Image Dataset.zip')
 # root.extractall('Data')
 # root.close()
-
+DROPOUT =0.5
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
@@ -36,21 +35,64 @@ random_seed = 42
 train_size = 0.8
 
 n_epoch = 20
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 
 ## Image processing
 CHANNELS = 3
 IMAGE_SIZE = 100
 
+# ------------------------------------------------------------------------------------------------------------------
+class CNN(tf.keras.Model):
+    def __init__(self):
+        super(CNN, self).__init__()
+        self.conv1 = tf.keras.layers.Conv2D(16, CHANNELS)  # output (n_examples, 26, 26, 16)
+        self.convnorm1 = tf.keras.layers.BatchNormalization()
+        self.pool1 = tf.keras.layers.MaxPool2D(2)  # output (n_examples, 13, 13, 16)
+        self.conv2 = tf.keras.layers.Conv2D(32, CHANNELS)  # output (n_examples, 11, 11, 32)
+        self.convnorm2 = tf.keras.layers.BatchNormalization()
+        self.pool2 = tf.keras.layers.AveragePooling2D(2)  # output (n_examples, 5, 5, 32)
+        self.flatten = tf.keras.layers.Flatten()  # input will be flattened to (n_examples, 32 * 5 * 5)
+        self.linear1 = tf.keras.layers.Dense(100)
+        self.linear1_bn = tf.keras.layers.BatchNormalization()
+        self.linear2 = tf.keras.layers.Dense(OUTPUTS_a)
+        self.act = tf.nn.relu
+        self.drop = DROPOUT
+        self.training = True
+
+    def call(self, x):
+        x = self.pool1(self.convnorm1(self.act(self.conv1(x)), training=self.training))
+        x = self.flatten(self.pool2(self.convnorm2(self.act(self.conv2(x)), training=self.training)))
+        x = tf.nn.dropout(self.linear1_bn(self.act(self.linear1(x)), training=self.training), self.drop)
+        return self.linear2(x)
+
+
+def read_train(DATA_DIR):
+  train_ds = tf.keras.utils.image_dataset_from_directory(
+    DATA_DIR,
+    validation_split=0.2,
+    subset="training",
+    seed=random_seed,
+    image_size=(IMAGE_SIZE, IMAGE_SIZE),
+    batch_size=BATCH_SIZE)
+  return train_ds
+
+def read_test(DATA_DIR):
+    val_ds = tf.keras.utils.image_dataset_from_directory(
+      DATA_DIR,
+      validation_split=0.2,
+      subset="validation",
+      seed=random_seed,
+      image_size=(IMAGE_SIZE, IMAGE_SIZE),
+      batch_size=BATCH_SIZE)
+    return val_ds
 
 # ------------------------------------------------------------------------------------------------------------------
 
-def load_img(dir):
+def show_data(test_ds):
     img_path = []
     img_id = []
-    for root, animal_folder, img_files in os.walk(dir):
-        for i in img_files:
-            img_path.append(os.path.join(root, i))
+    for i in test_ds.file_paths:
+        img_path.append(i)
     for i in img_path:
         a = i.split('/')[-2:]
         img_id.append(a[0] + '/' + a[1])
@@ -81,136 +123,13 @@ def load_img(dir):
             labels.append('horse')
         elif class_name == 'dogs':
             labels.append('dogs')
-    ##shuffle
     data = np.array([img_id, labels])
     data = data.transpose()
-    np.random.shuffle(data)
     image_list = list(data[:, 0])
     label_list = list(data[:, 1])
     df = pd.DataFrame((image_list, label_list)).T
     df.rename(columns={0: "id", 1: 'target'}, inplace=True)
-    df_train, df_test = train_test_split(df, train_size=train_size, random_state=random_seed)
-    # Reset the index
-    df_train, df_test = df_train.reset_index(drop=True), df_test.reset_index(drop=True)
-    df_train['split'] = 'train'
-    df_test['split'] = 'test'
-    all_data = pd.concat([df_train, df_test])
-    return all_data
-
-
-# ------------------------------------------------------------------------------------------------------------------
-
-def process_target(target_type):
-    '''
-        1- Multiclass  target = (1...n, text1...textn)
-        2- Multilabel target = ( list(Text1, Text2, Text3 ) for each observation, separated by commas )
-        3- Binary   target = (1,0)
-
-    :return:
-    '''
-
-    class_names = np.sort(xdf_data['target'].unique())
-
-    if target_type == 1:
-
-        x = lambda x: tf.argmax(x == class_names).numpy()
-
-        final_target = xdf_data['target'].apply(x)
-
-        final_target = to_categorical(list(final_target))
-
-        xfinal = []
-        for i in range(len(final_target)):
-            joined_string = ",".join(str(int(e)) for e in (final_target[i]))
-            xfinal.append(joined_string)
-        final_target = xfinal
-
-        xdf_data['target_class'] = final_target
-
-    if target_type == 2:
-        target = np.array(xdf_data['target'].apply(lambda x: x.split(",")))
-
-        xdepth = len(class_names)
-
-        final_target = tf.one_hot(target, xdepth)
-
-        xfinal = []
-        if len(final_target) == 0:
-            xerror = 'Could not process Multilabel'
-        else:
-            for i in range(len(final_target)):
-                joined_string = ",".join(str(e) for e in final_target[i])
-                xfinal.append(joined_string)
-            final_target = xfinal
-
-        xdf_data['target_class'] = final_target
-
-    if target_type == 3:
-        # target_class is already done
-        pass
-
-    return class_names
-
-
-# ------------------------------------------------------------------------------------------------------------------
-
-def process_path(feature, target):
-    '''
-          feature is the path and id of the image
-          target is the result
-          returns the image and the target as label
-    '''
-
-    label = target
-
-    file_path = feature
-    img = tf.io.read_file(file_path)
-
-    img = tf.io.decode_jpeg(img, channels=CHANNELS)
-
-    img = tf.image.resize(img, [IMAGE_SIZE, IMAGE_SIZE])
-
-    # augmentation
-    img = tf.reshape(img, [-1])
-
-    return img, label
-
-
-# ------------------------------------------------------------------------------------------------------------------
-
-def get_target(num_classes):
-    '''
-    Get the target from the dataset
-    1 = multiclass
-    2 = multilabel
-    3 = binary
-    '''
-
-    y_target = np.array(xdf_dset['target_class'].apply(lambda x: ([int(i) for i in str(x).split(",")])))
-
-    end = np.zeros(num_classes)
-    for s1 in y_target:
-        end = np.vstack([end, s1])
-    y_target = np.array(end[1:])
-    return y_target
-
-
-# ------------------------------------------------------------------------------------------------------------------
-
-def read_data(num_classes):
-    '''
-          reads the dataset and process the target
-    '''
-
-    ds_inputs = np.array(DATA_DIR + xdf_dset['id'])
-    ds_targets = get_target(num_classes)
-
-    list_ds = tf.data.Dataset.from_tensor_slices(
-        (ds_inputs, ds_targets))  # creates a tensor from the image paths and targets
-
-    final_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE).batch(BATCH_SIZE)
-
-    return final_ds
+    return df
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -219,34 +138,51 @@ def save_model(model):
     '''
          receives the model and print the summary into a .txt file
     '''
-    with open('summary.txt', 'w') as fh:
+    with open('summary_{}.txt', 'w') as fh:
         # Pass the file handle in as a lambda function to make it callable
         model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
-
 # ------------------------------------------------------------------------------------------------------------------
 
-def model_definition():
-    # Define a Keras sequential model
-    model = Sequential()
-    # Define the first dense layer
-    model.add(Dense(64, activation='relu', input_shape=(INPUTS_r,)))
-    model.add(BatchNormalization())
-    model.add(Dense(64, activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dense(64, activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dense(64, activation='sigmoid'))
-    model.add(BatchNormalization())
-    model.add(Dropout(0.5))
-    model.add(Dense(64, activation='softmax'))
-    model.add(BatchNormalization())
-    model.add(Dense(OUTPUTS_a, activation='softmax'))  # final layer , outputs_a is the number of targets
+def model_definition(models):
+    # model = tf.keras.models.Sequential([
+    #     # Note the input shape is the desired size of the image 300x300 with 3 bytes color
+    #     # This is the first convolution
+    #     tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS)),
+    #     tf.keras.layers.MaxPooling2D(2, 2),
+    #     # The second convolution
+    #     tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+    #     tf.keras.layers.MaxPooling2D(2, 2),
+    #     # The third convolution
+    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    #     tf.keras.layers.MaxPooling2D(2, 2),
+    #     # The fourth convolution
+    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    #     tf.keras.layers.MaxPooling2D(2, 2),
+    #     # The fifth convolution
+    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    #     tf.keras.layers.MaxPooling2D(2, 2),
+    #     # Flatten the results to feed into a DNN
+    #     tf.keras.layers.Flatten(),
+    #     tf.keras.layers.Dense(128, activation='relu'),
+    #     tf.keras.layers.Dense(OUTPUTS_a, activation='relu')])
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.01),
+    # vgg = VGG19(weights="imagenet", include_top=False, input_shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS),
+    #             classes=OUTPUTS_a)
+    # for layer in vgg.layers:
+    #     layer.trainable = False
+    # model = Sequential()
+    # model.add(vgg)
+    # model.add(Flatten())
+    # model.add(Dense(OUTPUTS_a, activation="softmax"))
+    if models == 'CNN':
+        model = CNN()
+
+    model.compile(optimizer='adam',
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
     save_model(model)  # print Summary
+
     return model
 
 
@@ -256,7 +192,7 @@ def train_func(train_ds):
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=100)
     check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='accuracy', save_best_only=True)
     final_model = model_definition()
-
+    #
     final_model.fit(train_ds, epochs=n_epoch, callbacks=[early_stop, check_point])
 
 
@@ -266,9 +202,8 @@ def predict_func(test_ds):
     final_model = tf.keras.models.load_model('model.h5')
     res = final_model.predict(test_ds)
     xres = [tf.argmax(f).numpy() for f in res]
-    xdf_dset['results'] = xres
-    xdf_dset.to_excel('results.xlsx', index=False)
-
+    data['results'] = xres
+    data.to_excel('results.xlsx', index=False)
 
 # ------------------------------------------------------------------------------------------------------------------
 
@@ -316,8 +251,8 @@ def metrics_func(metrics, aggregates=[]):
     # For multiclass
 
     x = lambda x: tf.argmax(x == class_names).numpy()
-    y_true = np.array(xdf_dset['target'].apply(x))
-    y_pred = np.array(xdf_dset['results'])
+    y_true = np.array(data['target'].apply(x))
+    y_pred = np.array(data['results'])
 
     # End of Multiclass
 
@@ -360,26 +295,19 @@ def metrics_func(metrics, aggregates=[]):
 
 
 if __name__ == "__main__":
-    dir = DATA_DIR
-    xdf_data = load_img(dir)
-
-    class_names = process_target(1)  # 1: Multiclass 2: Multilabel 3:Binary
-
-    INPUTS_r = IMAGE_SIZE * IMAGE_SIZE * CHANNELS
+    ### all data
+    train_ds = read_train(DATA_DIR)
+    test_ds = read_test(DATA_DIR)
+    # class_names = process_target(1)  # 1: Multiclass 2: Multilabel 3:Binary
+    class_names = train_ds.class_names
     OUTPUTS_a = len(class_names)
-
+    data = show_data(test_ds)
     ## Processing Train dataset
 
-    xdf_dset = xdf_data[xdf_data["split"] == 'train'].copy()
-
-    train_ds = read_data(OUTPUTS_a)
     train_func(train_ds)
 
     # Preprocessing Test dataset
 
-    xdf_dset = xdf_data[xdf_data["split"] == 'test'].copy()
-
-    test_ds = read_data(OUTPUTS_a)
     predict_func(test_ds)
 
     ## Metrics Function over the result of the test dataset
