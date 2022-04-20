@@ -1,93 +1,55 @@
-# ------------------------------------------------------------------------------------------------------------------
-import os
+import matplotlib.pyplot as plt
+import warnings
 import numpy as np
-import random
-import pandas as pd
+import os
+import PIL
 import tensorflow as tf
-import sys
-from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_score, matthews_corrcoef
-
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Conv2D, MaxPool2D, Flatten, BatchNormalization, MaxPooling2D
-from keras.utils import np_utils
-from sklearn.model_selection import train_test_split
-
+import pandas as pd
+from tensorflow import keras
+from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
-from tensorflow.python.keras.applications.vgg19 import VGG19
-# ------------------------------------------------------------------------------------------------------------------
-## Process images in parallel
-AUTOTUNE = tf.data.AUTOTUNE
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.applications.resnet50 import ResNet50
+import pathlib
 
-# root = zip.ZipFile('Animal Image Dataset.zip')
-# root.extractall('Data')
-# root.close()
-DROPOUT =0.5
+# -----------------------
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data'
+# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data/'
 
 DATA_DIR = os.getcwd() + os.path.sep + 'Data' + os.path.sep
 sep = os.path.sep
-os.chdir(OR_PATH)  # Come back to the folder where the code resides , all files will be left on this directory
+os.chdir(OR_PATH)
+# -----------------------
 
 random_seed = 42
 train_size = 0.8
 
-n_epoch = 20
-BATCH_SIZE = 128
+batch_size = 5
+img_height = 256
+img_width = 256
 
-## Image processing
-CHANNELS = 3
-IMAGE_SIZE = 100
-
-# ------------------------------------------------------------------------------------------------------------------
-class CNN(tf.keras.Model):
-    def __init__(self):
-        super(CNN, self).__init__()
-        self.conv1 = tf.keras.layers.Conv2D(16, CHANNELS)  # output (n_examples, 26, 26, 16)
-        self.convnorm1 = tf.keras.layers.BatchNormalization()
-        self.pool1 = tf.keras.layers.MaxPool2D(2)  # output (n_examples, 13, 13, 16)
-        self.conv2 = tf.keras.layers.Conv2D(32, CHANNELS)  # output (n_examples, 11, 11, 32)
-        self.convnorm2 = tf.keras.layers.BatchNormalization()
-        self.pool2 = tf.keras.layers.AveragePooling2D(2)  # output (n_examples, 5, 5, 32)
-        self.flatten = tf.keras.layers.Flatten()  # input will be flattened to (n_examples, 32 * 5 * 5)
-        self.linear1 = tf.keras.layers.Dense(100)
-        self.linear1_bn = tf.keras.layers.BatchNormalization()
-        self.linear2 = tf.keras.layers.Dense(OUTPUTS_a)
-        self.act = tf.nn.relu
-        self.drop = DROPOUT
-        self.training = True
-
-    def call(self, x):
-        x = self.pool1(self.convnorm1(self.act(self.conv1(x)), training=self.training))
-        x = self.flatten(self.pool2(self.convnorm2(self.act(self.conv2(x)), training=self.training)))
-        x = tf.nn.dropout(self.linear1_bn(self.act(self.linear1(x)), training=self.training), self.drop)
-        return self.linear2(x)
-
-
-def read_train(DATA_DIR):
-  train_ds = tf.keras.utils.image_dataset_from_directory(
-    DATA_DIR,
-    validation_split=0.2,
-    subset="training",
-    seed=random_seed,
-    image_size=(IMAGE_SIZE, IMAGE_SIZE),
-    batch_size=BATCH_SIZE)
-  return train_ds
-
-def read_test(DATA_DIR):
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-      DATA_DIR,
-      validation_split=0.2,
-      subset="validation",
-      seed=random_seed,
-      image_size=(IMAGE_SIZE, IMAGE_SIZE),
-      batch_size=BATCH_SIZE)
-    return val_ds
+epochs = 3
+channel = 3
 
 # ------------------------------------------------------------------------------------------------------------------
+#### Data Augmentation
+# ------------------------------------------------------------------------------------------------------------------
+data_augmentation = keras.Sequential(
+    [
+        layers.RandomFlip("horizontal",
+                          input_shape=(img_height, img_width, channel)),
+        layers.RandomRotation(0.1),
+        layers.RandomZoom(0.1),
+    ]
+)
 
+
+# ------------------------------------------------------------------------------------------------------------------
+#### def
+# -------------------------------------------------------------------------------------------------------------------
 def show_data(test_ds):
     img_path = []
     img_id = []
@@ -130,187 +92,139 @@ def show_data(test_ds):
     df = pd.DataFrame((image_list, label_list)).T
     df.rename(columns={0: "id", 1: 'target'}, inplace=True)
     return df
+# -------------------------------------------------------------------------------------------------------------------
 
+def process_target(target_type):
+    '''
+        1- Multiclass  target = (1...n, text1...textn)
+        2- Multilabel target = ( list(Text1, Text2, Text3 ) for each observation, separated by commas )
+        3- Binary   target = (1,0)
 
-# ------------------------------------------------------------------------------------------------------------------
+    :return:
+    '''
+    class_names = np.sort(data['target'].unique())
 
+    if target_type == 1:
+
+        x = lambda x: tf.argmax(x == class_names).numpy()
+
+        final_target = data['target'].apply(x)
+
+        final_target = to_categorical(list(final_target))
+
+        xfinal = []
+
+        for i in range(len(final_target)):
+            joined_string = ",".join(str(int(e)) for e in (final_target[i]))
+            xfinal.append(joined_string)
+        final_target = xfinal
+
+        data['target_class'] = final_target
+
+# -------------------------------------------------------------------------------------------------------------------
 def save_model(model):
     '''
-         receives the model and print the summary into a .txt file
-    '''
-    with open('summary_{}.txt', 'w') as fh:
+       receives the model and print the summary into a .txt file
+  '''
+    with open('model_summary.txt', 'w') as fh:
         # Pass the file handle in as a lambda function to make it callable
         model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
 # ------------------------------------------------------------------------------------------------------------------
+#### Data Load
+# ------------------------------------------------------------------------------------------------------------------
+train_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=DATA_DIR,
+    validation_split=0.2,
+    subset="training",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
 
-def model_definition(models):
-    # model = tf.keras.models.Sequential([
-    #     # Note the input shape is the desired size of the image 300x300 with 3 bytes color
-    #     # This is the first convolution
-    #     tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS)),
-    #     tf.keras.layers.MaxPooling2D(2, 2),
-    #     # The second convolution
-    #     tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-    #     tf.keras.layers.MaxPooling2D(2, 2),
-    #     # The third convolution
-    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-    #     tf.keras.layers.MaxPooling2D(2, 2),
-    #     # The fourth convolution
-    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-    #     tf.keras.layers.MaxPooling2D(2, 2),
-    #     # The fifth convolution
-    #     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-    #     tf.keras.layers.MaxPooling2D(2, 2),
-    #     # Flatten the results to feed into a DNN
-    #     tf.keras.layers.Flatten(),
-    #     tf.keras.layers.Dense(128, activation='relu'),
-    #     tf.keras.layers.Dense(OUTPUTS_a, activation='relu')])
+test_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=DATA_DIR,
+    validation_split=0.2,
+    subset="validation",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
 
-    # vgg = VGG19(weights="imagenet", include_top=False, input_shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS),
-    #             classes=OUTPUTS_a)
-    # for layer in vgg.layers:
-    #     layer.trainable = False
-    # model = Sequential()
-    # model.add(vgg)
-    # model.add(Flatten())
-    # model.add(Dense(OUTPUTS_a, activation="softmax"))
-    if models == 'CNN':
-        model = CNN()
+class_names = train_ds.class_names
+num_classes = len(class_names)
+
+# ------------------------------------------------------------------------------------------------------------------
+#### model
+# ------------------------------------------------------------------------------------------------------------------
+def model_def():
+    model = Sequential([
+        data_augmentation,
+        layers.Rescaling(1. / 255),
+        layers.Conv2D(16, 3, padding='same', activation='relu'),
+        layers.MaxPooling2D(),
+        layers.Conv2D(32, 3, padding='same', activation='relu'),
+        layers.MaxPooling2D(),
+        layers.Conv2D(64, 3, padding='same', activation='relu'),
+        layers.MaxPooling2D(),
+        layers.Dropout(0.2),
+        layers.Flatten(),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(num_classes)
+    ])
 
     model.compile(optimizer='adam',
-                  loss='categorical_crossentropy',
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
-    save_model(model)  # print Summary
 
+    save_model(model)
     return model
-
-
 # ------------------------------------------------------------------------------------------------------------------
 
-def train_func(train_ds):
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=100)
-    check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='accuracy', save_best_only=True)
-    final_model = model_definition()
-    #
-    final_model.fit(train_ds, epochs=n_epoch, callbacks=[early_stop, check_point])
 
-
-# ------------------------------------------------------------------------------------------------------------------
-
-def predict_func(test_ds):
-    final_model = tf.keras.models.load_model('model.h5')
-    res = final_model.predict(test_ds)
-    xres = [tf.argmax(f).numpy() for f in res]
-    data['results'] = xres
-    data.to_excel('results.xlsx', index=False)
+model = model_def()
+#### callbacks
+early_stop = tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience =100)
+check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='accuracy', save_best_only=True)
+model = model_def()
+history = model.fit(train_ds, validation_data=test_ds, epochs=epochs, callbacks=[early_stop, check_point])
 
 # ------------------------------------------------------------------------------------------------------------------
+### results
+# ------------------------------------------------------------------------------------------------------------------
+data = show_data(test_ds)
+class_names = process_target(1)
+res = model.predict(test_ds)
+xres = [tf.argmax(f).numpy() for f in res]
+data['results'] = xres
+data.to_excel('results.xlsx', index=False)
 
-def metrics_func(metrics, aggregates=[]):
-    '''
-    multiple functiosn of metrics to call each function
-    f1, cohen, accuracy, mattews correlation
-    list of metrics: f1_micro, f1_macro, f1_avg, coh, acc, mat
-    list of aggregates : avg, sum
-    :return:
-    '''
+# ------------------------------------------------------------------------------------------------------------------
+###plot
 
-    def f1_score_metric(y_true, y_pred, type):
-        '''
-            type = micro,macro,weighted,samples
-        :param y_true:
-        :param y_pred:
-        :param average:
-        :return: res
-        '''
-        res = f1_score(y_true, y_pred, average=type)
-        print("f1_score {}".format(type), res)
-        return res
+loss, accuracy = model.evaluate(test_ds)
+acc = history.history['accuracy']
+val_acc = history.history['val_accuracy']
 
-    def cohen_kappa_metric(y_true, y_pred):
-        res = cohen_kappa_score(y_true, y_pred)
-        print("cohen_kappa_score", res)
-        return res
+loss = history.history['loss']
+val_loss = history.history['val_loss']
 
-    def accuracy_metric(y_true, y_pred):
-        res = accuracy_score(y_true, y_pred)
-        print("accuracy_score", res)
-        return res
+epochs_range = range(epochs)
 
-    def matthews_metric(y_true, y_pred):
-        res = matthews_corrcoef(y_true, y_pred)
-        print('mattews_coef', res)
-        return res
+fig = plt.figure(figsize=(12, 8))
+plt.subplot(1, 2, 1)
+plt.plot(epochs_range, acc, label='Training Accuracy')
+plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='upper left')
 
-    def hamming_metric(y_true, y_pred):
-        res = hamming_loss(y_true, y_pred)
-        print('hamming_loss', res)
-        return res
+plt.subplot(1, 2, 2)
+plt.plot(epochs_range, loss, label='Training Loss')
+plt.plot(epochs_range, val_loss, label='Validation Loss')
+plt.legend(loc='upper right')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.tight_layout()
 
-    # For multiclass
-
-    x = lambda x: tf.argmax(x == class_names).numpy()
-    y_true = np.array(data['target'].apply(x))
-    y_pred = np.array(data['results'])
-
-    # End of Multiclass
-
-    xcont = 1
-    xsum = 0
-    xavg = 0
-
-    for xm in metrics:
-        if xm == 'f1_micro':
-            # f1 score average = micro
-            xmet = f1_score_metric(y_true, y_pred, 'micro')
-        elif xm == 'f1_macro':
-            # f1 score average = macro
-            xmet = f1_score_metric(y_true, y_pred, 'macro')
-        elif xm == 'f1_weighted':
-            # f1 score average =
-            xmet = f1_score_metric(y_true, y_pred, 'weighted')
-        elif xm == 'coh':
-            # Cohen kappa
-            xmet = cohen_kappa_metric(y_true, y_pred)
-        elif xm == 'acc':
-            # Accuracy
-            xmet = accuracy_metric(y_true, y_pred)
-        elif xm == 'mat':
-            # Matthews
-            xmet = matthews_metric(y_true, y_pred)
-        elif xm == 'hlm':
-            xmet = hamming_metric(y_true, y_pred)
-        else:
-            xmet = print('Metric does not exist')
-
-        xsum = xsum + xmet
-        xcont = xcont + 1
-
-    if 'sum' in aggregates:
-        print('Sum of Metrics : ', xsum)
-    if 'avg' in aggregates and xcont > 0:
-        print('Average of Metrics : ', xsum / xcont)
-    # Ask for arguments for each metric
-
-
-if __name__ == "__main__":
-    ### all data
-    train_ds = read_train(DATA_DIR)
-    test_ds = read_test(DATA_DIR)
-    # class_names = process_target(1)  # 1: Multiclass 2: Multilabel 3:Binary
-    class_names = train_ds.class_names
-    OUTPUTS_a = len(class_names)
-    data = show_data(test_ds)
-    ## Processing Train dataset
-
-    train_func(train_ds)
-
-    # Preprocessing Test dataset
-
-    predict_func(test_ds)
-
-    ## Metrics Function over the result of the test dataset
-    list_of_metrics = ['f1_macro', 'coh', 'acc']
-    list_of_agg = ['avg']
-    metrics_func(list_of_metrics, list_of_agg)
+fig.savefig('plot.pdf', bbox_inches='tight')
