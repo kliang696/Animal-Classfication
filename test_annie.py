@@ -12,37 +12,44 @@ from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.applications.resnet50 import ResNet50
 import pathlib
-from sklearn.metrics import f1_score, cohen_kappa_score, accuracy_score, matthews_corrcoef
+import warnings
+from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_score, matthews_corrcoef
 
 # -----------------------
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data/'
+# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data'
 
-DATA_DIR = os.getcwd() + os.path.sep + 'Data' + os.path.sep
+DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'test'
 sep = os.path.sep
 os.chdir(OR_PATH)
+
 # -----------------------
-# -----------------------
+## Process images in parallel
+AUTOTUNE = tf.data.AUTOTUNE
 random_seed = 42
 train_size = 0.8
 
 batch_size = 64
-epochs = 20
+epochs = 2
 lr = 0.01
-img_height = 224
-img_width = 224
+img_height = 256
+img_width = 256
 channel = 3
 # -----------------------
 # ------------------------------------------------------------------------------------------------------------------
 #### def
 # -------------------------------------------------------------------------------------------------------------------
-def show_data(test_ds):
+# ------------------------------------------------------------------------------------------------------------------
+#### def
+# ------------------------------------------------------------------------------------------------------------------
+def all_data(file_dir):
     img_path = []
     img_id = []
-    for i in test_ds.file_paths:
-        img_path.append(i)
+    for root, sub_folders, files in os.walk(file_dir):
+        for i in files:
+            img_path.append(os.path.join(root, i))
     for i in img_path:
         a = i.split('/')[-2:]
         img_id.append(a[0] + '/' + a[1])
@@ -73,14 +80,16 @@ def show_data(test_ds):
             labels.append('horse')
         elif class_name == 'dogs':
             labels.append('dogs')
-    data = np.array([img_id, labels])
+    data = np.array([img_path, img_id, labels])
     data = data.transpose()
-    image_list = list(data[:, 0])
-    label_list = list(data[:, 1])
-    df = pd.DataFrame((image_list, label_list)).T
-    df.rename(columns={0: "id", 1: 'target'}, inplace=True)
+    path_list = list(data[:, 0])
+    id_list = list(data[:, 1])
+    label_list = list(data[:, 2])
+    df = pd.DataFrame((path_list, id_list, label_list)).T
+    df.rename(columns={0:'path', 1:"id", 2: 'target'}, inplace=True)
     return df
 
+# -------------------------------------------------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------------------------------------------------
 
@@ -111,17 +120,39 @@ def process_target(target_type):
         final_target = xfinal
 
         data['target_class'] = final_target
+    return class_names
 
-# -------------------------------------------------------------------------------------------------------------------
-def save_model(model):
+def process_path(feature, target):
     '''
-       receives the model and print the summary into a .txt file
-  '''
-    with open('model_summary.txt', 'w') as fh:
-        # Pass the file handle in as a lambda function to make it callable
-        model.summary(print_fn=lambda x: fh.write(x + '\n'))
+          feature is the path and id of the image
+          target is the result
+          returns the image and the target as label
+    '''
+    label = target
+    file_path = feature
+    img = tf.io.read_file(file_path)
+    img = tf.io.decode_jpeg(img, channels=channel)
+    img = tf.image.resize(img, [img_height, img_width])
+    return img, label
 
-# -----------------------------------------------------------------------------------------------------------------
+def read_data():
+
+    ds_inputs = np.array(DATA_DIR + sep +data['id'])
+    ds_targets = np.array(data['true'])
+
+    list_ds = tf.data.Dataset.from_tensor_slices((ds_inputs,ds_targets)) # creates a tensor from the image paths and targets
+
+    final_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE).batch(batch_size)
+
+    return final_ds
+# -------------------------------------------------------------------------------------------------------------------
+
+# model = tf.keras.models.load_model('model.h5')
+# res = model.predict(test_ds)
+# xres = [tf.argmax(f).numpy() for f in res]
+# data['results'] = xres
+# data.to_excel('results.xlsx', index=False)
+
 def predict_func(test_ds):
     final_model = tf.keras.models.load_model('model.h5')
     res = final_model.predict(test_ds)
@@ -129,9 +160,7 @@ def predict_func(test_ds):
     loss, accuracy = final_model.evaluate(test_ds)
     data['results'] = xres
     data.to_excel('results.xlsx', index=False)
-
 # -----------------------------------------------------------------------------------------------------------------
-
 def metrics_func(metrics, aggregates=[]):
     '''
     multiple functiosn of metrics to call each function
@@ -168,6 +197,10 @@ def metrics_func(metrics, aggregates=[]):
         print('mattews_coef', res)
         return res
 
+    def hamming_metric(y_true, y_pred):
+        res = hamming_loss(y_true, y_pred)
+        return res
+
     # For multiclass
 
     y_true = np.array(data['true'])
@@ -198,6 +231,8 @@ def metrics_func(metrics, aggregates=[]):
         elif xm == 'mat':
             # Matthews
             xmet = matthews_metric(y_true, y_pred)
+        elif xm == 'hlm':
+            xmet =hamming_metric(y_true, y_pred)
         else:
             xmet = print('Metric does not exist')
 
@@ -209,24 +244,14 @@ def metrics_func(metrics, aggregates=[]):
     if 'avg' in aggregates and xcont > 0:
         print('Average of Metrics : ', xsum / xcont)
 
-# -----------------------------------------------------------------------------------------------------------------
-#### Data Load
-# -----------------------------------------------------------------------------------------------------------------
-test_ds = tf.keras.utils.image_dataset_from_directory(
-    directory=DATA_DIR,
-    validation_split=0.2,
-    subset="validation",
-    seed=random_seed,
-    image_size=(img_height, img_width),
-    batch_size=batch_size)
+
 
 # -----------------------------------------------------------------------------------------------------------------
-#### Testing
-# -----------------------------------------------------------------------------------------------------------------
-data = show_data(test_ds)
-class_names = process_target(1)
+
+data = all_data(DATA_DIR)
+class_names= process_target(1)
+test_ds = read_data()
 predict_func(test_ds)
-## Metrics Function over the result of the test dataset
-list_of_metrics = ['f1_macro', 'coh', 'acc']
+list_of_metrics = ['f1_macro', 'coh']
 list_of_agg = ['avg']
 metrics_func(list_of_metrics, list_of_agg)
