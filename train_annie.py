@@ -10,6 +10,9 @@ from tensorflow.keras.models import Sequential
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.applications.resnet50 import ResNet50
+from tensorflow.python.keras.applications.vgg19 import VGG19
+from tensorflow.python.keras.applications.vgg16 import VGG16
+from tensorflow.python.keras.applications.efficientnet import EfficientNet
 import pathlib
 from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_score, matthews_corrcoef
 from PIL import Image
@@ -46,10 +49,10 @@ random_seed = 42
 train_size = 0.8
 
 batch_size = 64
-epochs = 2
+epochs = 3
 lr = 0.01
-img_height = 224
-img_width = 224
+img_height = 256
+img_width = 256
 channel = 3
 # -----------------------
 # ------------------------------------------------------------------------------------------------------------------
@@ -103,32 +106,20 @@ num_classes = len(class_names)
 #### Model for Training
 # -----------------------------------------------------------------------------------------------------------------
 def model_def():
-    # model = Sequential([
-    #     data_augmentation,
-    #     layers.Rescaling(1. / 255),
-    #     layers.Conv2D(16, 3, padding='same', activation='relu'),
-    #     layers.MaxPooling2D(),
-    #     layers.Conv2D(32, 3, padding='same', activation='relu'),
-    #     layers.MaxPooling2D(),
-    #     layers.Conv2D(64, 3, padding='same', activation='relu'),
-    #     layers.MaxPooling2D(),
-    #     layers.Dropout(0.2),
-    #     layers.Flatten(),
-    #     layers.Dense(128, activation='relu'),
-    #     layers.Dense(num_classes)
-    # ])
+    model1 = Sequential()
+    vgg = tf.keras.applications.VGG16(include_top=False, weights='imagenet')
+    for layer in vgg.layers:
+        layer.trainable = False
 
-    # Add the pretrained layers
-    pretrained_model = keras.applications.ResNet50(include_top=False, weights='imagenet')
+    model1.add(vgg)
 
-    # Add GlobalAveragePooling2D layer
-    average_pooling = keras.layers.GlobalAveragePooling2D()(pretrained_model.output)
+    average_pooling = keras.layers.GlobalAveragePooling2D()(model1.output)
 
     # Add the output layer
     output = keras.layers.Dense(12, activation='softmax')(average_pooling)
 
     # Get the model
-    model = keras.Model(inputs=pretrained_model.input, outputs=output)
+    model = keras.Model(inputs=model1.input, outputs=output)
 
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
                   loss='sparse_categorical_crossentropy',
@@ -142,7 +133,7 @@ def train_func(train_ds):
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min')
     check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True, mode='min')
     model = model_def()
-    history = model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[early_stop, check_point])
+    history = model.fit(train_ds, validation_data=val_ds, epochs=epochs,callbacks=[early_stop, check_point])
     return history
 
 
@@ -180,3 +171,4 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.tight_layout()
 fig.savefig('plot.pdf', bbox_inches='tight')
+plt.show()
