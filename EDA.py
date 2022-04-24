@@ -123,4 +123,5 @@ Target.plot.barh(fontsize=20)
 plt.ylabel('Animal Class',fontsize=20)
 plt.xlabel('Sample counts',fontsize=20)
 plt.title("Sample Distribution by Animal Class",fontsize=20)
+plt.show()
 # As the picture showed, the Animal Dataset is almost balanced.
