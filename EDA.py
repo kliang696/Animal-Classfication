@@ -111,6 +111,7 @@ ds = tf.keras.utils.image_dataset_from_directory(
 
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
+
 data = show_data(ds)
 print(data)
 print(data.shape)
@@ -118,9 +119,8 @@ print(data.shape)
 
 #### EDA PLOT
 Target = data.groupby(['target']).size()
-Target.plot.barh()
-plt.ylabel('Animal Class')
-plt.xlabel('Sample counts')
-plt.title("Sample Distribution by Animal Class")
-plt.show()
+Target.plot.barh(fontsize=20)
+plt.ylabel('Animal Class',fontsize=20)
+plt.xlabel('Sample counts',fontsize=20)
+plt.title("Sample Distribution by Animal Class",fontsize=20)
 # As the picture showed, the Animal Dataset is almost balanced.
