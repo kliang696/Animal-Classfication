@@ -16,6 +16,7 @@ from tensorflow.python.keras.applications.efficientnet import EfficientNet
 import pathlib
 from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_score, matthews_corrcoef
 from PIL import Image
+from tensorflow.python.keras.layers import Flatten, Dense
 
 # -----------------------
 OR_PATH = os.getcwd()
@@ -84,7 +85,7 @@ def save_model(model):
 # -----------------------------------------------------------------------------------------------------------------
 train_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
-    validation_split=0.2,
+    validation_split=0.1,
     subset="training",
     seed=random_seed,
     image_size=(img_height, img_width),
@@ -92,7 +93,7 @@ train_ds = tf.keras.utils.image_dataset_from_directory(
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
-    validation_split=0.2,
+    validation_split=0.1,
     subset="validation",
     seed=random_seed,
     image_size=(img_height, img_width),
@@ -107,15 +108,16 @@ num_classes = len(class_names)
 # -----------------------------------------------------------------------------------------------------------------
 def model_def():
     model1 = Sequential()
-    vgg = tf.keras.applications.VGG16(include_top=False, weights='imagenet')
+    vgg = tf.keras.applications.ResNet50(include_top=False, weights='imagenet')
     for layer in vgg.layers:
         layer.trainable = False
 
     model1.add(vgg)
+    model1.add(Dense(num_classes, activation="softmax"))
+    # Add the output layer
 
     average_pooling = keras.layers.GlobalAveragePooling2D()(model1.output)
 
-    # Add the output layer
     output = keras.layers.Dense(12, activation='softmax')(average_pooling)
 
     # Get the model
@@ -130,8 +132,8 @@ def model_def():
 
 # -------------------------------------------------------------------------------------------------------------------
 def train_func(train_ds):
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode='min')
-    check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True, mode='min')
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='MONITOR_VAL', patience=10)
+    check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='MONITOR_VAL', save_best_only=True)
     model = model_def()
     history = model.fit(train_ds, validation_data=val_ds, epochs=epochs,callbacks=[early_stop, check_point])
     return history
