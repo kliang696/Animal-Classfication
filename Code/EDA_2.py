@@ -20,8 +20,9 @@ OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
 # DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data'
-
-DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'test'
+DATA_DIR = os.getcwd() + os.path.sep + 'Data' + os.path.sep
+data_dir_test = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'test'
+data_dir_train = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'train'
 sep = os.path.sep
 os.chdir(OR_PATH)
 
@@ -29,8 +30,6 @@ os.chdir(OR_PATH)
 ## Process images in parallel
 AUTOTUNE = tf.data.AUTOTUNE
 random_seed = 42
-train_size = 0.8
-
 batch_size = 64
 epochs = 2
 lr = 0.01
@@ -38,24 +37,6 @@ img_height = 256
 img_width = 256
 channel = 3
 # -----------------------
-#img_path = []
-#img_id = []
-#png_list = []
-#for root, animal_folder, img_files in os.walk(DATA_DIR):
-#    for i in img_files:
-#        img_path.append(os.path.join(root, i))
-#for i in img_path:
-#    img_format = i.split('.')[-1]
-#    if img_format == 'png':
-#        png_list.append(i)
-#for j in png_list:
-#    im = Image.open(j)
-#    rgb_im = im.convert('RGB')
-#    rgb_im.save(f"{j.split('.')[0]}.jpeg")
-
-# ------------------------------------------------------------------------------------------------------------------
-#### def
-# -------------------------------------------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------------------------------------------
 #### def
 # ------------------------------------------------------------------------------------------------------------------
@@ -103,22 +84,82 @@ def show_data(test_ds):
     return df
 
 # -------------------------------------------------------------------------------------------------------------------
-
+### Data Loading
 # -------------------------------------------------------------------------------------------------------------------
-test_ds = tf.keras.utils.image_dataset_from_directory(
+all_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
     seed=random_seed,
     image_size=(img_height, img_width),
     batch_size=batch_size)
 
+test_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=data_dir_test,
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
+
+train_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=data_dir_train,
+    validation_split=0.3,
+    subset="training",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=data_dir_train,
+    validation_split=0.3,
+    subset="validation",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
+
+class_names = train_ds.class_names
+num_classes = len(class_names)
+# -----------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------------
 #### EDA
-#Test dataset distribution
-test_data = show_data(test_ds)
-print(test_data)
-Target1 = test_data.groupby(['target']).size()
-Target1.plot.barh(fontsize=20)
+# All dataset distribution
+all_data = show_data(all_ds)
+Target_all = all_data.groupby(['target']).size()
+plt.figure(figsize=(12,8))
+Target_all.plot.barh(fontsize=20)
 plt.ylabel('Animal Class',fontsize=20)
 plt.xlabel('Sample counts',fontsize=20)
-plt.title("Test Dataset Sample Distribution by Animal Class",fontsize=20)
+plt.title("Sample Distribution by Animal Class",fontsize=20)
+plt.show()
+plt.close()
+
+#Train dataset distribution
+train_data = show_data(train_ds)
+Target_train = train_data.groupby(['target']).size()
+Target_train.plot.barh(fontsize=20)
+plt.figure(figsize=(12,8))
+plt.ylabel('Animal Class',fontsize=20)
+plt.xlabel('Sample counts',fontsize=20)
+plt.title("Train Dataset Sample Distribution by Animal Class", fontsize=20)
+plt.show()
+plt.close()
+
+#validation dataset distribution
+val_data = show_data(val_ds)
+Target_val = val_data.groupby(['target']).size()
+plt.figure(figsize=(12,8))
+Target_val.plot.barh(fontsize=20)
+plt.ylabel('Animal Class',fontsize=20)
+plt.xlabel('Sample counts',fontsize=20)
+plt.title("Validation Dataset Sample Distribution by Animal Class", fontsize=20)
+plt.show()
+plt.close()
+#### EDA
+
+#Test dataset distribution
+test_data = show_data(test_ds)
+Target_test = test_data.groupby(['target']).size()
+plt.figure(figsize=(12,8))
+Target_test.plot.barh(fontsize=20)
+plt.ylabel('Animal Class', fontsize=20)
+plt.xlabel('Sample counts', fontsize=20)
+plt.title("Test Dataset Sample Distribution by Animal Class", fontsize=20)
 plt.show()
 plt.close()
