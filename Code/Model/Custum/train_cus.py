@@ -29,8 +29,6 @@ os.chdir(OR_PATH)
 # -----------------------
 # -----------------------
 random_seed = 42
-train_size = 0.8
-
 batch_size = 64
 epochs = 3
 lr = 0.01
