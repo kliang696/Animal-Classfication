@@ -148,12 +148,12 @@ def read_data():
 # data.to_excel('results.xlsx', index=False)
 
 def predict_func(test_ds):
-    final_model = tf.keras.models.load_model('model_cus.h5')
+    final_model = tf.keras.models.load_model('model_VGG19.h5')
     res = final_model.predict(test_ds)
     xres = [tf.argmax(f).numpy() for f in res]
     loss, accuracy = final_model.evaluate(test_ds)
     data['results'] = xres
-    data.to_excel('results_cus.xlsx', index=False)
+    data.to_excel('results_VGG19.xlsx', index=False)
 # -----------------------------------------------------------------------------------------------------------------
 def metrics_func(metrics, aggregates=[]):
     '''

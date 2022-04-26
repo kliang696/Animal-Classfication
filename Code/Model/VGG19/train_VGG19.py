@@ -22,29 +22,10 @@ from tensorflow.python.keras.layers import Flatten, Dense
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data/'
-
 DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep + 'train_test' + os.path.sep + 'train'
 sep = os.path.sep
 os.chdir(OR_PATH)
 # -----------------------
-
-#
-# img_path = []
-# img_id = []
-# png_list = []
-# for root, animal_folder, img_files in os.walk(DATA_DIR):
-#     for i in img_files:
-#         img_path.append(os.path.join(root, i))
-# for i in img_path:
-#     img_format = i.split('.')[-1]
-#     if img_format == 'png':
-#         png_list.append(i)
-# for j in png_list:
-#     im = Image.open(j)
-#     rgb_im = im.convert('RGB')
-#     rgb_im.save(f"{j.split('.')[0]}.jpeg")
-
 # -----------------------
 random_seed = 42
 train_size = 0.8
