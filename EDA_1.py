@@ -46,7 +46,7 @@ random_seed = 42
 train_size = 0.8
 
 batch_size = 64
-epochs = 20
+epochs = 3
 lr = 0.01
 img_height = 224
 img_width = 224
@@ -109,19 +109,59 @@ ds = tf.keras.utils.image_dataset_from_directory(
     image_size=(img_height, img_width),
     batch_size=batch_size)
 
+train_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=DATA_DIR,
+    validation_split=0.1,
+    subset="training",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
+
+val_ds = tf.keras.utils.image_dataset_from_directory(
+    directory=DATA_DIR,
+    validation_split=0.1,
+    subset="validation",
+    seed=random_seed,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
+
+class_names = train_ds.class_names
+num_classes = len(class_names)
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
 
 data = show_data(ds)
+train_data = show_data(train_ds)
+val_data = show_data(val_ds)
 print(data)
 print(data.shape)
-
+print(train_data)
+print(val_data)
 
 #### EDA PLOT
+#dataset distribution
 Target = data.groupby(['target']).size()
 Target.plot.barh(fontsize=20)
 plt.ylabel('Animal Class',fontsize=20)
 plt.xlabel('Sample counts',fontsize=20)
 plt.title("Sample Distribution by Animal Class",fontsize=20)
 plt.show()
-# As the picture showed, the Animal Dataset is almost balanced.
+plt.close()
+
+#Train dataset distribution
+Target1 = train_data.groupby(['target']).size()
+Target1.plot.barh(fontsize=20)
+plt.ylabel('Animal Class',fontsize=20)
+plt.xlabel('Sample counts',fontsize=20)
+plt.title("Train Dataset Sample Distribution by Animal Class",fontsize=20)
+plt.show()
+plt.close()
+
+#validation dataset distribution
+Target2 = val_data.groupby(['target']).size()
+Target2.plot.barh(fontsize=20)
+plt.ylabel('Animal Class',fontsize=20)
+plt.xlabel('Sample counts',fontsize=20)
+plt.title("Validation Dataset Sample Distribution by Animal Class",fontsize=20)
+plt.show()
+plt.close()
