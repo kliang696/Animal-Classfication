@@ -18,8 +18,6 @@ import torch.nn as nn
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Final_project/Data/'
-
 DATA_DIR = os.getcwd() + os.path.sep + 'Data' + os.path.sep
 sep = os.path.sep
 os.chdir(OR_PATH)
@@ -103,7 +101,7 @@ def show_data(test_ds):
 
 #### Data Load
 # -----------------------------------------------------------------------------------------------------------------
-ds = tf.keras.utils.image_dataset_from_directory(
+all_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
     seed=random_seed,
     image_size=(img_height, img_width),
@@ -111,7 +109,7 @@ ds = tf.keras.utils.image_dataset_from_directory(
 
 train_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
-    validation_split=0.1,
+    validation_split=0.3,
     subset="training",
     seed=random_seed,
     image_size=(img_height, img_width),
@@ -119,7 +117,7 @@ train_ds = tf.keras.utils.image_dataset_from_directory(
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
     directory=DATA_DIR,
-    validation_split=0.1,
+    validation_split=0.3,
     subset="validation",
     seed=random_seed,
     image_size=(img_height, img_width),
@@ -130,16 +128,16 @@ num_classes = len(class_names)
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
 
-data = show_data(ds)
+all_data = show_data(all_ds)
 train_data = show_data(train_ds)
 val_data = show_data(val_ds)
-print(data)
+print(all_data)
 print(train_data)
 print(val_data)
 
 #### EDA PLOT
 #dataset distribution
-Target = data.groupby(['target']).size()
+Target = all_data.groupby(['target']).size()
 Target.plot.barh(fontsize=20)
 plt.ylabel('Animal Class',fontsize=20)
 plt.xlabel('Sample counts',fontsize=20)
