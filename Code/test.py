@@ -19,28 +19,22 @@ from sklearn.metrics import accuracy_score, f1_score, hamming_loss, cohen_kappa_
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data'
-
 DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'test'
 sep = os.path.sep
 os.chdir(OR_PATH)
-
 # -----------------------
-## Process images in parallel
+# -----------------------
 AUTOTUNE = tf.data.AUTOTUNE
 random_seed = 42
 train_size = 0.8
 
 batch_size = 64
-epochs = 2
+epochs = 3
 lr = 0.01
 img_height = 256
 img_width = 256
 channel = 3
 # -----------------------
-# ------------------------------------------------------------------------------------------------------------------
-#### def
-# -------------------------------------------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------------------------------------------
 #### def
 # ------------------------------------------------------------------------------------------------------------------
@@ -154,12 +148,12 @@ def read_data():
 # data.to_excel('results.xlsx', index=False)
 
 def predict_func(test_ds):
-    final_model = tf.keras.models.load_model('model.h5')
+    final_model = tf.keras.models.load_model('model_ResNet50.h5')
     res = final_model.predict(test_ds)
     xres = [tf.argmax(f).numpy() for f in res]
     loss, accuracy = final_model.evaluate(test_ds)
     data['results'] = xres
-    data.to_excel('results.xlsx', index=False)
+    data.to_excel('results_ResNet50.xlsx', index=False)
 # -----------------------------------------------------------------------------------------------------------------
 def metrics_func(metrics, aggregates=[]):
     '''
