@@ -134,7 +134,6 @@ data = show_data(ds)
 train_data = show_data(train_ds)
 val_data = show_data(val_ds)
 print(data)
-print(data.shape)
 print(train_data)
 print(val_data)
 
