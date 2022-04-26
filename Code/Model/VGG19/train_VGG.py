@@ -24,7 +24,7 @@ os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
 # DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data/'
 
-DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'train'
+DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep + 'train_test' + os.path.sep + 'train'
 sep = os.path.sep
 os.chdir(OR_PATH)
 # -----------------------
@@ -68,6 +68,7 @@ data_augmentation = keras.Sequential(
     ]
 )
 
+
 # ------------------------------------------------------------------------------------------------------------------
 #### def
 
@@ -76,9 +77,10 @@ def save_model(model):
     '''
        receives the model and print the summary into a .txt file
   '''
-    with open('model_summary.txt', 'w') as fh:
+    with open('model_summary_VGG19.txt', 'w') as fh:
         # Pass the file handle in as a lambda function to make it callable
         model.summary(print_fn=lambda x: fh.write(x + '\n'))
+
 
 # -----------------------------------------------------------------------------------------------------------------
 #### Data Load
@@ -111,8 +113,6 @@ def model_def():
     model1.add(VGG)
     model1.add(tf.keras.layers.Dense(12))
 
-
-
     # Add the output layer
 
     average_pooling = keras.layers.GlobalAveragePooling2D()(model1.output)
@@ -129,12 +129,14 @@ def model_def():
     save_model(model)
     return model
 
+
 # -------------------------------------------------------------------------------------------------------------------
 def train_func(train_ds):
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2,mode='min')
-    check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True,mode='min')
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, mode='min')
+    check_point = tf.keras.callbacks.ModelCheckpoint('model_VGG19.h5', monitor='val_loss', save_best_only=True,
+                                                     mode='min')
     model = model_def()
-    history = model.fit(train_ds, validation_data=val_ds, epochs=epochs,callbacks=[early_stop, check_point])
+    history = model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[early_stop, check_point])
     return history
 
 
@@ -143,14 +145,12 @@ def train_func(train_ds):
 # -----------------------------------------------------------------------------------------------------------------
 history = train_func(train_ds)
 # -----------------------
-### plot
+### train_val plot
 
 acc = history.history['accuracy']
 val_acc = history.history['val_accuracy']
-
 loss = history.history['loss']
 val_loss = history.history['val_loss']
-
 
 x = np.arange(1, epochs + 1, 1)
 fig = plt.figure(figsize=(12, 8))
@@ -172,5 +172,5 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.xticks(x)
 plt.tight_layout()
-fig.savefig('plot.pdf', bbox_inches='tight')
+fig.savefig('train_val_plot_VGG19.pdf', bbox_inches='tight')
 plt.show()

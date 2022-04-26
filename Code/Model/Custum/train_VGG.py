@@ -22,29 +22,11 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Conv2D, 
 OR_PATH = os.getcwd()
 os.chdir("..")  # Change to the parent directory
 PATH = os.getcwd()
-# DATA_DIR = OR_PATH + os.path.sep + 'Deep-Learning/animalclassification/Data/'
 
 DATA_DIR = os.getcwd() + os.path.sep + 'Code' + os.path.sep +'train_test' + os.path.sep + 'train'
 sep = os.path.sep
 os.chdir(OR_PATH)
 # -----------------------
-
-#
-# img_path = []
-# img_id = []
-# png_list = []
-# for root, animal_folder, img_files in os.walk(DATA_DIR):
-#     for i in img_files:
-#         img_path.append(os.path.join(root, i))
-# for i in img_path:
-#     img_format = i.split('.')[-1]
-#     if img_format == 'png':
-#         png_list.append(i)
-# for j in png_list:
-#     im = Image.open(j)
-#     rgb_im = im.convert('RGB')
-#     rgb_im.save(f"{j.split('.')[0]}.jpeg")
-
 # -----------------------
 random_seed = 42
 train_size = 0.8
@@ -70,13 +52,12 @@ data_augmentation = keras.Sequential(
 
 # ------------------------------------------------------------------------------------------------------------------
 #### def
-
 # -------------------------------------------------------------------------------------------------------------------
 def save_model(model):
     '''
        receives the model and print the summary into a .txt file
   '''
-    with open('model_summary.txt', 'w') as fh:
+    with open('model_summary_cus.txt', 'w') as fh:
         # Pass the file handle in as a lambda function to make it callable
         model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
@@ -133,13 +114,12 @@ def model_def():
 
     return model
 
+
 # -------------------------------------------------------------------------------------------------------------------
 def train_func(train_ds):
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2,mode='min')
-    check_point = tf.keras.callbacks.ModelCheckpoint('model.h5', monitor='val_loss', save_best_only=True,mode='min')
-
+    check_point = tf.keras.callbacks.ModelCheckpoint('model_cus.h5', monitor='val_loss', save_best_only=True,mode='min')
     model = model_def()
-
     history = model.fit(train_ds, validation_data=val_ds, epochs=epochs,callbacks=[early_stop, check_point])
     return history
 
@@ -153,7 +133,6 @@ history = train_func(train_ds)
 
 acc = history.history['accuracy']
 val_acc = history.history['val_accuracy']
-
 loss = history.history['loss']
 val_loss = history.history['val_loss']
 
@@ -178,5 +157,5 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.xticks(x)
 plt.tight_layout()
-fig.savefig('plot.pdf', bbox_inches='tight')
+fig.savefig('train_val_plot_cus.pdf', bbox_inches='tight')
 plt.show()
