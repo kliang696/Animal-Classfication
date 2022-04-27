@@ -105,6 +105,8 @@ def process_target(target_type):
         data['target_class'] = final_target
     return class_names
 
+
+# -------------------------------------------------------------------------------------------------------------------
 def process_path(feature, target):
     '''
           feature is the path and id of the image
