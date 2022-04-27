@@ -1,4 +1,4 @@
-####### EDA part
+########### EDA part ###################################################
 import matplotlib.pyplot as plt
 import warnings
 import numpy as np
@@ -167,7 +167,7 @@ plt.close()
 
 
 
-############### Pretrained model VGG16
+################## Pretrained model VGG16 ###########################################################
 def model_def():
     model1 = tf.keras.Sequential()
     VGG = tf.keras.applications.VGG16(include_top=False, weights='imagenet')
@@ -193,7 +193,7 @@ def model_def():
     return model
 
 
-############# Pretrained model EfficientNetB5
+################## Pretrained model EfficientNetB5 #######################################################
 def model_def():
     model1 = tf.keras.Sequential()
     VGG = tf.keras.applications.EfficientNetB5(include_top=False, weights='imagenet')
