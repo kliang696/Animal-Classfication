@@ -19,6 +19,15 @@ path = Path("D:\test")
 temp = path.rename("Data")
 new_path = temp.absolute()
 ## Coding part in Code folder
+#### library required
+import sklearn
+import numpy
+import tensorflow.keras
+import seaborn
+import matplotlib
+import tensorflow
+import pandas
+from PIL import Image
 ### Dataset Splitting
 train_test_split.py
 ### EDA
